@@ -1,136 +1,148 @@
-from fastapi import FastAPI
-import random
-import requests
+from fastapi import FastAPI, HTTPException
 import os
+import openai
 from typing import Optional
+from dotenv import load_dotenv
 
-app = FastAPI(title="Stock API - Alpha Vantage + Fallback")
+load_dotenv()
 
-# Alpha Vantage API (free tier: 25 requests/day, 5 requests/minute)
-ALPHA_VANTAGE_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "demo")  # Use "demo" for testing
+from .models import RoboAdvisorRequest, RoboAdvisorResponse, StructuredQuery, StockData
+from .prompts import extract_ticker_from_text
+from .alpha_vantage import AlphaVantageClient, create_comprehensive_context, format_context_for_llm
 
-def fetch_from_alpha_vantage(symbol: str) -> Optional[dict]:
-    """Fetch real stock data from Alpha Vantage API"""
+app = FastAPI(title="RoboAdvisor API")
+
+def get_openai_response(prompt: str, max_tokens: int = 400) -> str:
+    """Simple OpenAI API call"""
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        return "I'm unable to provide analysis right now. Please check back later."
+    
     try:
-        url = f"https://www.alphavantage.co/query"
-        params = {
-            "function": "GLOBAL_QUOTE",
-            "symbol": symbol,
-            "apikey": ALPHA_VANTAGE_KEY
-        }
-        
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        
-        # Alpha Vantage returns data in "Global Quote" key
-        quote = data.get("Global Quote", {})
-        if not quote:
-            return None
-            
-        return {
-            "symbol": symbol.upper(),
-            "name": f"{symbol.upper()} Corporation",  # Alpha Vantage doesn't provide company name in this endpoint
-            "price": float(quote.get("05. price", 0)),
-            "previous_close": float(quote.get("08. previous close", 0)),
-            "change": float(quote.get("09. change", 0)),
-            "change_percent": quote.get("10. change percent", "0%").replace("%", ""),
-            "volume": int(quote.get("06. volume", 0)),
-            "52_week_high": float(quote.get("03. high", 0)),
-            "52_week_low": float(quote.get("04. low", 0)),
-            "source": "alpha_vantage"
-        }
-        
+        client = openai.OpenAI(api_key=openai_api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=max_tokens
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Alpha Vantage error for {symbol}: {e}")
-        return None
+        return f"Analysis temporarily unavailable: {str(e)}"
 
-# Stock database - just clean sample data
-STOCK_DATA = {
-    "AAPL": {
-        "symbol": "AAPL", "name": "Apple Inc.", "price": 227.52,
-        "previous_close": 225.77, "market_cap": 3454000000000,
-        "pe_ratio": 33.44, "sector": "Technology", "industry": "Consumer Electronics",
-        "52_week_high": 237.23, "52_week_low": 164.08, "dividend_yield": 0.44
-    },
-    "TSLA": {
-        "symbol": "TSLA", "name": "Tesla, Inc.", "price": 242.68,
-        "previous_close": 238.59, "market_cap": 775000000000,
-        "pe_ratio": 65.32, "sector": "Consumer Cyclical", "industry": "Auto Manufacturers",
-        "52_week_high": 299.29, "52_week_low": 138.80, "dividend_yield": None
-    },
-    "SPY": {
-        "symbol": "SPY", "name": "SPDR S&P 500 ETF Trust", "price": 557.02,
-        "previous_close": 554.33, "market_cap": 524000000000,
-        "pe_ratio": None, "sector": "Financial Services", "industry": "Exchange Traded Fund",
-        "52_week_high": 565.85, "52_week_low": 415.54, "dividend_yield": 1.23
-    },
-    "NVDA": {
-        "symbol": "NVDA", "name": "NVIDIA Corporation", "price": 119.46,
-        "previous_close": 116.91, "market_cap": 2930000000000,
-        "pe_ratio": 66.12, "sector": "Technology", "industry": "Semiconductors",
-        "52_week_high": 140.76, "52_week_low": 39.23, "dividend_yield": 0.03
-    },
-    "MSFT": {
-        "symbol": "MSFT", "name": "Microsoft Corporation", "price": 425.22,
-        "previous_close": 422.37, "market_cap": 3160000000000,
-        "pe_ratio": 35.67, "sector": "Technology", "industry": "Software",
-        "52_week_high": 468.35, "52_week_low": 362.90, "dividend_yield": 0.72
-    },
-    "GOOGL": {
-        "symbol": "GOOGL", "name": "Alphabet Inc.", "price": 167.06,
-        "previous_close": 165.34, "market_cap": 2050000000000,
-        "pe_ratio": 23.45, "sector": "Communication Services", "industry": "Internet Content",
-        "52_week_high": 191.75, "52_week_low": 129.40, "dividend_yield": None
-    }
-}
+def get_stock_data(ticker: str) -> Optional[StockData]:
+    """Get stock data from Alpha Vantage"""
+    try:
+        client = AlphaVantageClient()
+        data = client.get_stock_quote(ticker)
+        return StockData(**data) if data else None
+    except Exception:
+        return None
 
 @app.get("/")
 def health():
-    return {
-        "status": "ok", 
-        "note": "Stock API with Alpha Vantage + fallback data",
-        "available_tickers": list(STOCK_DATA.keys()),
-        "alpha_vantage_key": "configured" if ALPHA_VANTAGE_KEY != "demo" else "using demo key"
-    }
+    return {"status": "healthy", "service": "RoboAdvisor API"}
 
-@app.get("/stock/{ticker}")
-def get_stock(ticker: str):
-    """Get stock info - tries Alpha Vantage first, falls back to sample data"""
-    symbol = ticker.upper()
+@app.get("/context/{symbol}")
+def debug_comprehensive_context(symbol: str):
+    """Debug endpoint to see what comprehensive context looks like"""
+    try:
+        context = create_comprehensive_context(symbol)
+        formatted = format_context_for_llm(context)
+        
+        return {
+            "symbol": symbol.upper(),
+            "raw_context": context,
+            "formatted_for_llm": formatted,
+            "data_sources": context.get("data_sources", [])
+        }
+    except Exception as e:
+        return {"error": str(e), "symbol": symbol}
+
+@app.post("/chat", response_model=RoboAdvisorResponse)
+def chat_roboadvisor(request: RoboAdvisorRequest) -> RoboAdvisorResponse:
+    query = request.query
     
-    # Try Alpha Vantage first
-    alpha_data = fetch_from_alpha_vantage(symbol)
-    if alpha_data:
-        return alpha_data
+    # Extract ticker from query
+    ticker = extract_ticker_from_text(query)
+    structured_query = StructuredQuery(
+        ticker=ticker,
+        query_type="analysis",
+        time_frame="current",
+        intent="Stock analysis request"
+    )
     
-    # Fallback to known stock data
-    if symbol in STOCK_DATA:
-        result = STOCK_DATA[symbol].copy()
-        result["source"] = "sample_data"
-        result["note"] = "Alpha Vantage unavailable, using sample data"
-        return result
+    # Handle unknown ticker
+    if ticker == "UNKNOWN":
+        return RoboAdvisorResponse(
+            response="I couldn't identify a specific stock. Please mention a company name or ticker symbol.",
+            structured_query=structured_query,
+            user_level="BEGINNER",
+            stock_data=None,
+            original_query=query
+        )
     
-    # Generate realistic data for unknown tickers
-    base_price = round(20 + random.random() * 300, 2)
-    return {
-        "symbol": symbol,
-        "name": f"{symbol} Corporation",
-        "price": base_price,
-        "previous_close": round(base_price * (0.98 + random.random() * 0.04), 2),
-        "change": round(base_price * (random.random() * 0.1 - 0.05), 2),
-        "change_percent": round((random.random() * 10 - 5), 2),
-        "market_cap": int(base_price * 1000000000 * (0.5 + random.random())),
-        "pe_ratio": round(15 + random.random() * 40, 2),
-        "dividend_yield": round(random.random() * 3, 2) if random.random() > 0.3 else None,
-        "52_week_high": round(base_price * (1.1 + random.random() * 0.3), 2),
-        "52_week_low": round(base_price * (0.6 + random.random() * 0.2), 2),
-        "volume": int(1000000 + random.random() * 50000000),
-        "sector": random.choice(["Technology", "Healthcare", "Financial Services", "Consumer Cyclical", "Energy"]),
-        "industry": "Various",
-        "source": "generated",
-        "note": f"Alpha Vantage unavailable, generated sample data for {symbol}"
-    }
+    # Get stock data
+    stock_data = get_stock_data(ticker)
+    if not stock_data:
+        return RoboAdvisorResponse(
+            response=f"Sorry, I can't get current data for {ticker}. Please try another stock or check back later.",
+            structured_query=structured_query,
+            user_level="BEGINNER",
+            stock_data=None,
+            original_query=query
+        )
+    
+    # Generate comprehensive response using ALL Alpha Vantage endpoints
+    print(f"Gathering comprehensive market data for {ticker}...")
+    
+    try:
+        # Get comprehensive context using all Alpha Vantage endpoints
+        comprehensive_context = create_comprehensive_context(ticker)
+        formatted_context = format_context_for_llm(comprehensive_context)
+        
+        prompt = f"""You are an experienced wealth advisor. A client just asked: "{query}"
+
+Here's the comprehensive market data I've gathered for {ticker}:
+
+{formatted_context}
+
+Analyze this data and provide a thorough, conversational response that:
+1. Answers their specific question
+2. Provides insights from the price action, fundamentals, and news
+3. Gives your professional opinion as a wealth advisor
+4. Sounds natural and engaging, not robotic
+
+Make it 2-3 paragraphs, professional but approachable."""
+
+        response_text = get_openai_response(prompt, max_tokens=600)
+        
+    except Exception as e:
+        print(f"Error creating comprehensive context: {e}")
+        # Fallback to basic response
+        change_pct = ((stock_data.price - stock_data.previous_close) / stock_data.previous_close * 100) if stock_data.previous_close else 0
+        
+        prompt = f"""You are a helpful financial advisor. Answer this user question about {stock_data.symbol}:
+
+User Question: {query}
+
+Current Stock Data:
+- Symbol: {stock_data.symbol}
+- Price: ${stock_data.price:.2f}
+- Change: {change_pct:+.1f}% today
+- Volume: {stock_data.volume:,} shares
+
+Provide a helpful, conversational analysis in 2-3 paragraphs. Be informative but easy to understand."""
+        
+        response_text = get_openai_response(prompt)
+    
+    return RoboAdvisorResponse(
+        response=response_text,
+        structured_query=structured_query,
+        user_level="INTERMEDIATE",
+        stock_data=stock_data,
+        original_query=query
+    )
 
 if __name__ == "__main__":
     import uvicorn

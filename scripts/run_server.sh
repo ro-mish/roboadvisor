@@ -1,9 +1,5 @@
 #!/bin/bash
-set -e
-
-REPO_ROOT="$(cd "$(dirname "$0")"/.. && pwd)"
-cd "$REPO_ROOT"
-
+cd "$(dirname "$0")/.."
+echo "Starting RoboAdvisor API server..."
 source venv/bin/activate
-echo "Starting server on http://localhost:8000"
-python -m server.main
+./venv/bin/python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload

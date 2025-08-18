@@ -25,8 +25,8 @@ scripts/run_ui.sh
 **Manual run:**
 ```bash
 source venv/bin/activate
-python -m server.main &
-streamlit run app/streamlit_app.py
+./venv/bin/python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload &
+./venv/bin/python -m streamlit run app/streamlit_app.py --server.port 8501
 ```
 
 ## Setup Alpha Vantage (Optional)
@@ -46,22 +46,43 @@ Without a key, it uses the demo key (limited) and falls back to sample data.
 curl http://localhost:8000/
 ```
 
-**Get stock data:**
+**Chat with the AI Wealth Advisor (main endpoint):**
 ```bash
-# Apple (tries real data first, falls back to sample)
-curl http://localhost:8000/stock/AAPL
+# Natural language queries
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Tell me how Tesla is doing today"}'
 
-# Tesla  
-curl http://localhost:8000/stock/TSLA
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is Apple stock price?"}'
 
-# Any ticker (generates data if unknown)
-curl http://localhost:8000/stock/NVDA
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query": "How has NVDA performed recently?"}'
 
 # Pretty print with jq
-curl -s http://localhost:8000/stock/AAPL | jq
+curl -s -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Tell me about Tesla"}' | jq
 ```
+
+## Testing
+
+**Run system tests:**
+```bash
+source venv/bin/activate
+./venv/bin/python scripts/test_system.py
+```
+
+
 
 ## API Endpoints
 
-- `GET /` - Health check
-- `GET /stock/{ticker}` - Get stock info for ticker symbol
+- `POST /chat` - **Main endpoint**: Natural language query → intelligent response
+
+## Environment Variables
+
+Required for full functionality:
+- `ALPHA_VANTAGE_API_KEY` - For real stock data (required)
+- `OPENAI_API_KEY` - For intelligent analysis (required)
