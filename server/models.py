@@ -1,9 +1,17 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict, Any, List
+from datetime import datetime
 
 
+class ConversationEntry(BaseModel):
+    timestamp: datetime
+    query: str
+    response: str
+    ticker: str
+    
 class RoboAdvisorRequest(BaseModel):
     query: str = Field(..., min_length=1)
+    session_id: Optional[str] = None
 
 
 # Structured output schemas for OpenAI
@@ -45,6 +53,11 @@ class StockData(BaseModel):
 
     class Config:
         populate_by_name = True
+        json_encoders = {
+            float: lambda v: v if v is not None else 0,
+            int: lambda v: v if v is not None else 0,
+            str: lambda v: v if v is not None else "N/A"
+        }
 
 
 class RoboAdvisorResponse(BaseModel):
@@ -52,4 +65,13 @@ class RoboAdvisorResponse(BaseModel):
     structured_query: StructuredQuery
     user_level: str
     stock_data: Optional[StockData] = None
+    comprehensive_context: Optional[Dict[str, Any]] = None
     original_query: str
+    session_id: Optional[str] = None
+    
+    class Config:
+        json_encoders = {
+            float: lambda v: v if v is not None else 0,
+            int: lambda v: v if v is not None else 0,
+            str: lambda v: v if v is not None else "N/A"
+        }

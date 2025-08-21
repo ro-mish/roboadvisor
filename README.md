@@ -4,9 +4,28 @@ A minimal FastAPI server that fetches stock data from Alpha Vantage Finance API.
 
 ## Setup
 
+1. **Install dependencies:**
 ```bash
 scripts/setup.sh
 ```
+
+2. **Configure environment variables:**
+Create a `.env` file in the project root with the following variables:
+
+```env
+# Required: OpenAI API Key for AI analysis
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Optional: Alpha Vantage API Key (defaults to "demo" with limited functionality)
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
+
+# Optional: API Base URL (defaults to http://localhost:8000)
+API_BASE_URL=http://localhost:8000
+```
+
+**Getting API Keys:**
+- **OpenAI API Key**: Get from [OpenAI Platform](https://platform.openai.com/api-keys)
+- **Alpha Vantage API Key**: Get free key from [Alpha Vantage](https://www.alphavantage.co/support/#api-key)
 
 ## Run
 

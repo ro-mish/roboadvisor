@@ -170,3 +170,49 @@ def extract_ticker_from_text(query: str) -> str:
             return ticker
     
     return "UNKNOWN"
+
+def create_single_stock_analysis_prompt(query: str, ticker: str, context: str, conversation_history: str = None) -> str:
+    """
+    Create a comprehensive single stock analysis prompt with conversation history
+    """
+    history_section = ""
+    if conversation_history:
+        history_section = f"\n\nCONVERSATION HISTORY:\n{conversation_history}\n\nNOTE: Reference previous discussions when relevant, but focus primarily on the current query."
+    
+    return f"""System: {MASTER_RESPONSE_SYSTEM}
+
+    User: A client just asked: "{query}"
+
+    CLIENT PROFILE:
+    - Experience Level: INTERMEDIATE
+    - What they want to know: {ticker} analysis
+
+    COMPREHENSIVE MARKET DATA & ANALYSIS:
+    {context}{history_section}
+
+    As their trusted wealth advisor, analyze ALL this data comprehensively:
+
+    1. PRICE ACTION: What's the current market telling us?
+    2. FUNDAMENTALS: How strong is the underlying business?
+    3. NEWS & SENTIMENT: What's driving recent movements?
+    4. MARKET POSITION: How does this fit in the broader market?
+
+    Use the news sentiment, fundamental metrics, and market data to give a well-rounded perspective. Don't just report data - synthesize it into actionable investment wisdom. Make it conversational and insightful."""
+
+def create_fallback_single_stock_prompt(query: str, stock_data, conversation_history: str = None) -> str:
+    """
+    Create a basic single stock prompt when comprehensive data is unavailable
+    """
+    history_section = ""
+    if conversation_history:
+        history_section = f"\n\nConversation History:\n{conversation_history}\n\nNote: Reference previous discussions when relevant."
+    
+    return f"""System: You are a helpful financial advisor. Provide a clear analysis based on the available stock data.
+
+User query: "{query}"
+
+Available stock data: {stock_data}{history_section}
+
+Please provide a helpful analysis of this stock based on the available information."""
+
+
