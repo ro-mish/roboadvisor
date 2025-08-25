@@ -21,30 +21,30 @@ conversation_memory: Dict[str, List[ConversationEntry]] = {}
 
 def validate_environment_variables():
     """Validate that all required environment variables are set"""
-    print("🔍 Checking environment variables...")
+    print("Checking environment variables...")
     
     # Check OpenAI API Key
     openai_key = os.getenv("OPENAI_API_KEY")
     if openai_key:
         if openai_key.startswith(('sk-', 'sk-proj-')):
-            print(f"✅ OpenAI API Key: {openai_key[:8]}...")
+            print(f"OpenAI API Key: {openai_key[:8]}...")
         else:
-            print("⚠️  OpenAI API Key format appears invalid")
+            print("WARNING: OpenAI API Key format appears invalid")
     else:
-        print("❌ OpenAI API Key: Not set")
+        print("ERROR: OpenAI API Key not set")
     
     # Check Alpha Vantage API Key
     alpha_key = os.getenv("ALPHA_VANTAGE_API_KEY", "demo")
     if alpha_key == "demo":
-        print("⚠️  Alpha Vantage API Key: Using demo (limited functionality)")
+        print("WARNING: Alpha Vantage API Key using demo (limited functionality)")
     else:
-        print(f"✅ Alpha Vantage API Key: {alpha_key[:8]}...")
+        print(f"Alpha Vantage API Key: {alpha_key[:8]}...")
     
     # Check API Base URL
     api_url = os.getenv("API_BASE_URL", "http://localhost:8000")
-    print(f"🔗 API Base URL: {api_url}")
+    print(f"API Base URL: {api_url}")
     
-    print("🚀 Environment validation complete\n")
+    print("Environment validation complete\n")
 
 # Validate environment on startup
 validate_environment_variables()
@@ -75,12 +75,12 @@ def get_openai_response(prompt: str, max_tokens: int = 400) -> str:
     """Simple OpenAI API call"""
     openai_api_key = os.getenv("OPENAI_API_KEY")
     if not openai_api_key:
-        print("❌ OPENAI_API_KEY not found in environment variables")
+        print("ERROR: OPENAI_API_KEY not found in environment variables")
         return "I'm unable to provide analysis right now. Please set the OPENAI_API_KEY environment variable."
     
     # Validate API key format
     if not openai_api_key.startswith(('sk-', 'sk-proj-')):
-        print("⚠️  OpenAI API key format seems invalid")
+        print("WARNING: OpenAI API key format seems invalid")
         return "OpenAI API key appears to be invalid. Please check your OPENAI_API_KEY environment variable."
     
     try:
@@ -287,7 +287,7 @@ def chat_roboadvisor(request: RoboAdvisorRequest) -> RoboAdvisorResponse:
     # Get conversation history
     conversation_history = get_conversation_history(session_id)
     
-    print(f"Gathering comprehensive market data for {primary_ticker}...")
+# Removed verbose print statement
     
     comprehensive_context = None
     response_text = ""

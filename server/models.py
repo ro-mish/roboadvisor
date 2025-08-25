@@ -8,29 +8,19 @@ class ConversationEntry(BaseModel):
     query: str
     response: str
     ticker: str
-    
+
 class RoboAdvisorRequest(BaseModel):
     query: str = Field(..., min_length=1)
     session_id: Optional[str] = None
-
-
-# Structured output schemas for OpenAI
-class QueryStructure(BaseModel):
-    ticker: str
-    query_type: str
-    time_frame: str
-    intent: str
-
-
-class UserLevel(BaseModel):
-    level: Literal["BEGINNER", "INTERMEDIATE", "ADVANCED"]
-
 
 class StructuredQuery(BaseModel):
     ticker: str
     query_type: str
     time_frame: str
     intent: str
+
+class UserLevel(BaseModel):
+    level: Literal["BEGINNER", "INTERMEDIATE", "ADVANCED"]
 
 
 class StockData(BaseModel):
@@ -53,11 +43,6 @@ class StockData(BaseModel):
 
     class Config:
         populate_by_name = True
-        json_encoders = {
-            float: lambda v: v if v is not None else 0,
-            int: lambda v: v if v is not None else 0,
-            str: lambda v: v if v is not None else "N/A"
-        }
 
 
 class RoboAdvisorResponse(BaseModel):
@@ -69,9 +54,4 @@ class RoboAdvisorResponse(BaseModel):
     original_query: str
     session_id: Optional[str] = None
     
-    class Config:
-        json_encoders = {
-            float: lambda v: v if v is not None else 0,
-            int: lambda v: v if v is not None else 0,
-            str: lambda v: v if v is not None else "N/A"
-        }
+

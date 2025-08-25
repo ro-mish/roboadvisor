@@ -17,9 +17,9 @@ class AlphaVantageClient:
         self.is_demo = self.api_key == "demo"
         
         if self.is_demo:
-            print("⚠️  Using demo Alpha Vantage API key - functionality will be limited")
+            print("WARNING: Using demo Alpha Vantage API key - functionality will be limited")
         else:
-            print(f"✅ Using Alpha Vantage API key: {self.api_key[:8]}...")
+            print(f"Using Alpha Vantage API key: {self.api_key[:8]}...")
     
     def _make_request(self, params: Dict[str, str]) -> Optional[Dict]:
         """Make API request"""
@@ -32,12 +32,10 @@ class AlphaVantageClient:
             error_keys = ["Error Message", "Note", "Information"]
             for key in error_keys:
                 if key in data and ("API call frequency" in data.get(key, "") or key == "Error Message"):
-                    print(f"Alpha Vantage {key}: {data[key]}")
                     return None
             
             return data
-        except Exception as e:
-            print(f"Request error for {params.get('function', 'unknown')}: {e}")
+        except Exception:
             return None
     
     def get_comprehensive_data(self, symbol: str) -> Dict[str, Any]:
@@ -72,8 +70,8 @@ class AlphaVantageClient:
                     if parsed_data:
                         result[key] = parsed_data
                         result["data_sources"].append(key)
-            except Exception as e:
-                print(f"Failed to fetch {function} for {symbol}: {e}")
+            except Exception:
+                pass
         
         if not result['data_sources']:
             self._add_mock_data(result, symbol_upper)

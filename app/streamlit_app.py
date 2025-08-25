@@ -145,13 +145,13 @@ def plot_sentiment_histogram(sentiment_scores):
     ax.set_ylabel("Frequency")
     st.pyplot(fig)
 
-st.set_page_config(page_title="AI Wealth Advisor", page_icon="💼")
-st.title("💼 AI Wealth Advisor")
+st.set_page_config(page_title="AI Wealth Advisor", page_icon="📊")
+st.title("AI Wealth Advisor")
 
 # Initialize chat
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "👋 Hi! I'm your AI Wealth Advisor. Ask me about any stock!"}
+        {"role": "assistant", "content": "Hello! I'm your AI Wealth Advisor. Ask me about any stock."}
     ]
 
 # Display messages
@@ -174,7 +174,7 @@ if prompt := st.chat_input("Ask about any stock..."):
             response = ask_roboadvisor(prompt)
         
         if "error" in response:
-            error_msg = f"❌ Error: {response['error']}"
+            error_msg = f"Error: {response['error']}"
             st.error(error_msg)
             st.session_state.messages.append({"role": "assistant", "content": error_msg})
         else:
@@ -188,7 +188,7 @@ if prompt := st.chat_input("Ask about any stock..."):
 
 # Sidebar
 with st.sidebar:
-    st.header("💡 Examples")
+    st.header("Examples")
     examples = [
         "How is Tesla performing?",
         "Should I buy Apple?",
@@ -203,19 +203,19 @@ with st.sidebar:
     
     if st.button("Clear Chat"):
         st.session_state.messages = [
-            {"role": "assistant", "content": "👋 Hi! I'm your AI Wealth Advisor. Ask me about any stock!"}
+            {"role": "assistant", "content": "Hello! I'm your AI Wealth Advisor. Ask me about any stock."}
         ]
         st.rerun()
 
 # Data tab at the bottom
 if hasattr(st.session_state, 'latest_response') and st.session_state.latest_response:
     st.markdown("---")
-    st.header("📊 Market Data Analysis")
+    st.header("Market Data Analysis")
     
     response_data = st.session_state.latest_response
     
     # Create tabs for different data views
-    tab1, tab2, tab3 = st.tabs(["📈 Stock Data", "🔍 Comprehensive Data", "⚙️ Debug Info"])
+    tab1, tab2, tab3 = st.tabs(["Stock Data", "Comprehensive Data", "Debug Info"])
     
     with tab1:
         if response_data.get("stock_data"):
@@ -276,7 +276,7 @@ if hasattr(st.session_state, 'latest_response') and st.session_state.latest_resp
                     # Display each data source
                     for source in data_sources:
                         if source in context and context[source]:
-                            with st.expander(f"📊 {source.replace('_', ' ').title()}"):
+                            with st.expander(f"{source.replace('_', ' ').title()}"):
                                 try:
                                     st.json(context[source])
                                 except Exception as e:
@@ -285,7 +285,7 @@ if hasattr(st.session_state, 'latest_response') and st.session_state.latest_resp
 
                     # Check if "news_sentiment" is one of the data sources
                     if "news_sentiment" in data_sources:
-                        st.subheader("📰 News Sentiment Analysis")
+                        st.subheader("News Sentiment Analysis")
 
                         # Analyze news sentiment
                         news_data = context.get("news_sentiment", {})
