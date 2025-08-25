@@ -2,7 +2,12 @@ import os
 import requests
 import streamlit as st
 import re
+from collections import Counter
+import matplotlib.pyplot as plt
+import pandas as pd
 from dotenv import load_dotenv
+from wordcloud import WordCloud
+import seaborn as sns
 
 # Load environment variables
 load_dotenv()
@@ -33,6 +38,112 @@ def ask_roboadvisor(query: str) -> dict:
         return response.json()
     except Exception as e:
         return {"error": str(e)}
+
+def analyze_news_sentiment(news_data):
+    """
+    Analyze sentiment from the news_sentiment section.
+    Returns sentiment counts and a list of article summaries.
+    """
+    if not news_data or "articles" not in news_data:
+        return None, None
+
+    # Extract sentiment labels and summaries
+    sentiments = []
+    summaries = []
+    for article in news_data["articles"]:
+        sentiments.append(article.get("overall_sentiment_label", "Neutral"))
+        summaries.append(article.get("summary", ""))
+
+    # Count sentiment occurrences
+    sentiment_counts = Counter(sentiments)
+
+    return sentiment_counts, summaries
+
+def plot_sentiment_distribution(sentiment_counts):
+    """
+    Plot a bar chart for sentiment distribution.
+    """
+    if not sentiment_counts:
+        st.info("No sentiment data available.")
+        return
+
+    # Bar chart for sentiment distribution
+    labels, values = zip(*sentiment_counts.items())
+    fig, ax = plt.subplots()
+    ax.bar(labels, values, color=["green", "red", "gray"])
+    ax.set_title("News Sentiment Distribution")
+    ax.set_xlabel("Sentiment")
+    ax.set_ylabel("Number of Articles")
+    st.pyplot(fig)
+
+def plot_word_cloud(summaries):
+    """
+    Generate and display a word cloud from article summaries.
+    """
+    if not summaries:
+        st.info("No article summaries available.")
+        return
+
+    text = " ".join(summaries)
+    wordcloud = WordCloud(width=800, height=400, background_color="white").generate(text)
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.imshow(wordcloud, interpolation="bilinear")
+    ax.axis("off")
+    st.pyplot(fig)
+
+def plot_sentiment_over_time(news_data):
+    """
+    Plot a line chart showing sentiment trends over time.
+    """
+    if not news_data or "articles" not in news_data:
+        st.info("No sentiment data available.")
+        return
+
+
+def plot_sentiment_heatmap(news_data):
+    """
+    Plot a heatmap showing sentiment distribution by topic.
+    """
+    if not news_data or "articles" not in news_data:
+        st.info("No sentiment data available.")
+        return
+
+    # Extract topics and sentiments
+    topic_sentiment = []
+    for article in news_data["articles"]:
+        topics = article.get("topics", [])
+        sentiment = article.get("overall_sentiment_label", "Neutral")
+        for topic in topics:
+            topic_sentiment.append((topic, sentiment))
+
+    if not topic_sentiment:
+        st.info("No topics available for sentiment data.")
+        return
+
+    # Create a DataFrame
+    df = pd.DataFrame(topic_sentiment, columns=["Topic", "Sentiment"])
+    sentiment_counts = df.groupby(["Topic", "Sentiment"]).size().unstack(fill_value=0)
+
+    # Plot the heatmap
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.heatmap(sentiment_counts, annot=True, fmt="d", cmap="coolwarm", ax=ax)
+    ax.set_title("Sentiment Distribution by Topic")
+    st.pyplot(fig)
+
+def plot_sentiment_histogram(sentiment_scores):
+    """
+    Plot a histogram of sentiment scores.
+    """
+    if not sentiment_scores:
+        st.info("No sentiment scores available.")
+        return
+
+    fig, ax = plt.subplots()
+    ax.hist(sentiment_scores, bins=20, color="blue", alpha=0.7)
+    ax.set_title("Sentiment Score Distribution")
+    ax.set_xlabel("Sentiment Score")
+    ax.set_ylabel("Frequency")
+    st.pyplot(fig)
 
 st.set_page_config(page_title="AI Wealth Advisor", page_icon="💼")
 st.title("💼 AI Wealth Advisor")
@@ -153,15 +264,15 @@ if hasattr(st.session_state, 'latest_response') and st.session_state.latest_resp
     with tab2:
         if response_data.get("comprehensive_context"):
             context = response_data["comprehensive_context"]
-            
+
             if context and isinstance(context, dict):
                 st.subheader(f"Comprehensive Data for {context.get('symbol', 'N/A')}")
-                
+
                 # Show data sources
                 data_sources = context.get("data_sources", [])
                 if data_sources and isinstance(data_sources, list):
                     st.write("**Data Sources Available:**", ", ".join(data_sources))
-                    
+
                     # Display each data source
                     for source in data_sources:
                         if source in context and context[source]:
@@ -171,12 +282,36 @@ if hasattr(st.session_state, 'latest_response') and st.session_state.latest_resp
                                 except Exception as e:
                                     st.error(f"Error displaying {source}: {e}")
                                     st.write(context[source])
+
+                    # Check if "news_sentiment" is one of the data sources
+                    if "news_sentiment" in data_sources:
+                        st.subheader("📰 News Sentiment Analysis")
+
+                        # Analyze news sentiment
+                        news_data = context.get("news_sentiment", {})
+                        sentiment_counts, summaries = analyze_news_sentiment(news_data)
+
+                        # Plot sentiment distribution
+                        plot_sentiment_distribution(sentiment_counts)
+
+                        # Plot word cloud
+                        plot_word_cloud(summaries)
+
+                        # Plot sentiment heatmap 
+                        plot_sentiment_heatmap(news_data)
+                        
+                        # Display article summaries 
+                        if summaries:
+                            st.subheader("Article Summaries")
+                            for summary in summaries:
+                                st.write(f"- {summary}")
                 else:
                     st.info("No data sources available in comprehensive context.")
             else:
                 st.error("Invalid comprehensive context format.")
         else:
             st.info("No comprehensive data available for the latest query.")
+        
     
     with tab3:
         st.subheader("Debug Information")
