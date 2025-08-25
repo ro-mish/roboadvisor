@@ -8,10 +8,10 @@ QUERY_STRUCTURING_SYSTEM = """You are a financial query analysis agent. Extract 
 Extract the correct stock ticker symbol from company names or existing tickers.
 
 Extract:
-1. ticker - Stock ticker symbol (REQUIRED - find the correct one)
-2. query_type - What user wants: price, performance, analysis, general
-3. time_frame - Time period: current, today, this_week, this_month, etc.
-4. intent - Brief description of what user wants to know
+1. ticker: str, Stock ticker symbol (REQUIRED - find the correct one or return "")
+2. query_type: str, What user wants: price, performance, analysis, general
+3. time_frame: str, Time period: current, today, this_week, this_month, etc.
+4. intent: str, Brief description of what user wants to know
 
 Common company mappings:
 - Apple → AAPL
@@ -157,12 +157,18 @@ def extract_ticker_from_text(query: str) -> str:
     """
     query_lower = query.lower()
     
+    # Common English words to filter out
+    english_words = {'THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HER', 'WAS', 'ONE', 'OUR', 'OUT', 'DAY', 'GET', 'USE', 'MAN', 'NEW', 'NOW', 'WAY', 'MAY', 'SAY', 'WHAT', 'WHEN', 'WHERE', 'WHO', 'WHY', 'HOW', 'SOME', 'GOOD', 'BEST', 'TOP', 'ANY', 'WILL', 'SHOULD', 'COULD', 'WOULD'}
+    
     # Check for exact ticker mentions (3-5 uppercase letters)
     import re
     ticker_pattern = r'\b([A-Z]{2,5})\b'
     matches = re.findall(ticker_pattern, query)
     if matches:
-        return matches[0]
+        # Filter out common English words
+        for match in matches:
+            if match not in english_words:
+                return match
     
     # Check company name mappings
     for company, ticker in COMPANY_TO_TICKER.items():
@@ -214,5 +220,24 @@ User query: "{query}"
 Available stock data: {stock_data}{history_section}
 
 Please provide a helpful analysis of this stock based on the available information."""
+
+def create_general_query_prompt(query: str, conversation_history: str = None) -> str:
+    """
+    Create a prompt for handling general queries that don't specify a ticker
+    """
+    history_section = ""
+    if conversation_history:
+        history_section = f"\n\nConversation History:\n{conversation_history}\n\nNote: Reference previous discussions when relevant."
+    
+    return f"""You are an experienced wealth advisor. The user has asked a general financial question that doesn't specify a particular stock or ticker symbol.
+
+User query: "{query}"{history_section}
+
+Please respond helpfully by:
+1. If the query is asking for general financial advice, market outlook, or investment strategies, provide useful information
+2. If the query seems to be asking about a specific stock but didn't mention one, politely ask them to clarify which company or ticker they're interested in
+3. If the query is too vague to provide meaningful financial advice, ask clarifying questions to better understand what they're looking for
+
+Be conversational, helpful, and professional. Guide them toward more specific questions if needed."""
 
 

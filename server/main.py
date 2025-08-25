@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from .models import RoboAdvisorRequest, RoboAdvisorResponse, StructuredQuery, StockData, ConversationEntry
-from .prompts import extract_ticker_from_text, create_single_stock_analysis_prompt, create_fallback_single_stock_prompt
+from .prompts import extract_ticker_from_text, create_single_stock_analysis_prompt, create_fallback_single_stock_prompt, create_general_query_prompt
 from .alpha_vantage import AlphaVantageClient, create_comprehensive_context, format_context_for_llm
 
 app = FastAPI(title="RoboAdvisor API")
@@ -136,7 +136,7 @@ def extract_tickers_from_text(text: str) -> List[str]:
         for match in matches:
             ticker = match.upper()
             # Filter out common English words that might match ticker pattern
-            if ticker not in ['THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HER', 'WAS', 'ONE', 'OUR', 'OUT', 'DAY', 'GET', 'USE', 'MAN', 'NEW', 'NOW', 'WAY', 'MAY', 'SAY'] and ticker not in tickers:
+            if ticker not in ['THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HER', 'WAS', 'ONE', 'OUR', 'OUT', 'DAY', 'GET', 'USE', 'MAN', 'NEW', 'NOW', 'WAY', 'MAY', 'SAY', 'WHAT', 'WHEN', 'WHERE', 'WHO', 'WHY', 'HOW', 'SOME', 'GOOD', 'BEST', 'TOP', 'ANY', 'WILL', 'SHOULD', 'COULD', 'WOULD'] and ticker not in tickers:
                 tickers.append(ticker)
     
     # Remove duplicates while preserving order
@@ -244,16 +244,22 @@ def chat_roboadvisor(request: RoboAdvisorRequest) -> RoboAdvisorResponse:
     primary_ticker = tickers[0] if tickers else "UNKNOWN"
     
     structured_query = StructuredQuery(
-        ticker=primary_ticker,
+        ticker=primary_ticker if primary_ticker != "UNKNOWN" else "",
         query_type="analysis",
         time_frame="current",
         intent="Stock analysis request"
     )
     
-    # Handle unknown ticker
+    # Handle unknown ticker - use general query prompt
     if primary_ticker == "UNKNOWN":
-        response_text = "I couldn't identify a specific stock. Please mention a company name or ticker symbol."
-        save_conversation_entry(session_id, query, response_text, "UNKNOWN")
+        # Get conversation history
+        conversation_history = get_conversation_history(session_id)
+        
+        # Use general query prompt to let LLM handle the response
+        prompt = create_general_query_prompt(query, conversation_history)
+        response_text = get_openai_response(prompt, max_tokens=600)
+        
+        save_conversation_entry(session_id, query, response_text, "")
         return RoboAdvisorResponse(
             response=response_text,
             structured_query=structured_query,
