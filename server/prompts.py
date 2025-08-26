@@ -14,7 +14,9 @@ Company mappings: Apple->AAPL, Tesla->TSLA, Microsoft->MSFT, Google->GOOGL, Amaz
 
 Examples:
 "Tesla today" -> {ticker: "TSLA", query_type: "performance", time_frame: "today", intent: "Tesla performance"}
-"Apple price" -> {ticker: "AAPL", query_type: "price", time_frame: "current", intent: "Apple price"}"""
+"Apple price" -> {ticker: "AAPL", query_type: "price", time_frame: "current", intent: "Apple price"}
+"Market Performance" -> {ticker: "", query_type: "", time_frame: "", intent: ""}
+"""
 
 QUERY_STRUCTURING_USER = """Extract structured information from: "{query}"""""
 
